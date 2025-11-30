@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTransactions } from "../hooks/useTransactions";
 import { TransactionForm } from "../components/TransactionForm";
 import { TransactionList } from "../components/TransactionList";
+import { TotalAmount } from "../components/TotalAmount";
 import { Modal } from "../components/Modal";
 import type { Transaction, TransactionCreate, TransactionUpdate } from "../types/transaction";
 import { formatDateInput } from "../utils/dateUtils";
@@ -13,17 +14,22 @@ export const Transactions = () => {
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [filterType, setFilterType] = useState<"income" | "expense" | undefined>();
 
+  // Получаем все транзакции (без фильтров на сервере)
   const {
-    transactions,
+    transactions: allTransactions,
     loading,
     error,
     createTransaction,
     updateTransaction,
     deleteTransaction,
-  } = useTransactions({
-    start_date: filterStartDate || undefined,
-    end_date: filterEndDate || undefined,
-    type: filterType,
+  } = useTransactions();
+
+  // Фильтруем транзакции на клиенте
+  const transactions = allTransactions.filter((t) => {
+    if (filterStartDate && t.date < filterStartDate) return false;
+    if (filterEndDate && t.date > filterEndDate) return false;
+    if (filterType && t.type !== filterType) return false;
+    return true;
   });
 
   const handleCreate = async (transaction: TransactionCreate) => {
@@ -35,6 +41,7 @@ export const Transactions = () => {
     if (editingTransaction) {
       await updateTransaction(editingTransaction.id, transaction);
       setEditingTransaction(null);
+      setShowForm(false);
     }
   };
 
@@ -90,6 +97,11 @@ export const Transactions = () => {
           }
         />
       </Modal>
+
+      <TotalAmount 
+        transactions={allTransactions} 
+        onCreateTransaction={createTransaction}
+      />
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-4">

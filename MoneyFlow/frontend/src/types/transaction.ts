@@ -1,4 +1,4 @@
-export type TransactionType = "income" | "expense";
+export type TransactionType = "income" | "expense" | "adjustment";
 
 export interface Transaction {
   id: number;
@@ -19,7 +19,7 @@ export interface TransactionCreate {
 }
 
 export interface TransactionUpdate {
-  date?: string;
+  date: string;
   type?: TransactionType;
   amount?: number;
   category?: string | null;

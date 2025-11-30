@@ -24,7 +24,7 @@ export const TransactionForm = ({
   initialData,
 }: TransactionFormProps) => {
   const [formData, setFormData] = useState<TransactionCreate>({
-    date: initialData?.date || formatDateInput(new Date()),
+    date: (initialData?.date && initialData.date.trim()) ? initialData.date : formatDateInput(new Date()),
     type: initialData?.type || "expense",
     amount: initialData?.amount || 0,
     category: initialData?.category || "",
@@ -84,12 +84,21 @@ export const TransactionForm = ({
     }
   }, [formData.type]);
 
-  // Синхронизация amountInput с initialData при изменении
+  // Синхронизация формы с initialData при изменении (для редактирования)
   useEffect(() => {
-    if (initialData?.amount !== undefined) {
-      setAmountInput(initialData.amount.toString());
+    if (initialData) {
+      setFormData({
+        date: (initialData.date && initialData.date.trim()) ? initialData.date : formatDateInput(new Date()),
+        type: initialData.type || "expense",
+        amount: initialData.amount || 0,
+        category: initialData.category || "",
+        description: initialData.description || "",
+      });
+      if (initialData.amount !== undefined) {
+        setAmountInput(initialData.amount.toString());
+      }
     }
-  }, [initialData?.amount]);
+  }, [initialData]);
 
   // Функция для вычисления выражения
   const calculateExpression = (expression: string): number | null => {
@@ -167,6 +176,13 @@ export const TransactionForm = ({
       return;
     }
 
+    // Валидация даты
+    if (!formData.date || !formData.date.trim()) {
+      setError("Дата обязательна");
+      setLoading(false);
+      return;
+    }
+
     // Валидация суммы
     if (!amountInput.trim()) {
       setError("Сумма обязательна");
@@ -196,7 +212,8 @@ export const TransactionForm = ({
       finalAmount = numValue;
     }
 
-    if (finalAmount <= 0) {
+    // Для adjustment сумма может быть отрицательной, для остальных - только положительной
+    if (formData.type !== "adjustment" && finalAmount <= 0) {
       setError("Сумма должна быть больше нуля");
       setLoading(false);
       return;
@@ -204,34 +221,62 @@ export const TransactionForm = ({
 
     try {
       // Формируем данные для отправки
-      const submitData: TransactionCreate | TransactionUpdate = {
-        date: formData.date,
-        type: formData.type,
-        amount: finalAmount,
-      };
+      let submitData: TransactionCreate | TransactionUpdate;
+      
+      if (initialData) {
+        // Режим редактирования - используем TransactionUpdate
+        // date теперь обязательное поле
+        if (!formData.date || !formData.date.trim()) {
+          setError("Дата обязательна");
+          setLoading(false);
+          return;
+        }
+        
+        submitData = {
+          date: formData.date.trim(),
+          type: formData.type,
+          amount: finalAmount,
+        } as TransactionUpdate;
 
-      // Обработка описания
-      const trimmedDescription = formData.description?.trim();
-      if (trimmedDescription) {
-        submitData.description = trimmedDescription;
-      } else if (initialData) {
-        // При редактировании отправляем null для очистки описания, если оно было удалено
-        submitData.description = null;
-      }
+        // Обработка описания
+        const trimmedDescription = formData.description?.trim();
+        if (trimmedDescription) {
+          submitData.description = trimmedDescription;
+        } else {
+          // При редактировании отправляем null для очистки описания, если оно было удалено
+          submitData.description = null;
+        }
 
-      // Обработка категории
-      if (formData.type === "expense") {
-        // Для расходов: отправляем категорию или null при редактировании
-        if (formData.category && formData.category.trim()) {
-          submitData.category = formData.category.trim();
-        } else if (initialData) {
-          // При редактировании отправляем null, если категория не выбрана
+        // Обработка категории
+        if (formData.type === "expense") {
+          // Для расходов: отправляем категорию или null при редактировании
+          if (formData.category && formData.category.trim()) {
+            submitData.category = formData.category.trim();
+          } else {
+            // При редактировании отправляем null, если категория не выбрана
+            submitData.category = null;
+          }
+        } else {
+          // Для доходов: при редактировании отправляем null для очистки категории
           submitData.category = null;
         }
       } else {
-        // Для доходов: при редактировании отправляем null для очистки категории
-        if (initialData) {
-          submitData.category = null;
+        // Режим создания - используем TransactionCreate
+        submitData = {
+          date: formData.date,
+          type: formData.type,
+          amount: finalAmount,
+        } as TransactionCreate;
+
+        // Обработка описания
+        const trimmedDescription = formData.description?.trim();
+        if (trimmedDescription) {
+          submitData.description = trimmedDescription;
+        }
+
+        // Обработка категории
+        if (formData.type === "expense" && formData.category && formData.category.trim()) {
+          submitData.category = formData.category.trim();
         }
         // При создании дохода не отправляем поле category
       }
@@ -287,10 +332,14 @@ export const TransactionForm = ({
             setFormData({ ...formData, type: e.target.value as TransactionType })
           }
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={formData.type === "adjustment"}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <option value="expense">Расход</option>
           <option value="income">Доход</option>
+          {formData.type === "adjustment" && (
+            <option value="adjustment">Корректировка</option>
+          )}
         </select>
       </div>
 

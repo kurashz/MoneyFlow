@@ -28,7 +28,7 @@ def get_transactions(
     limit: int = Query(100, ge=1, le=1000),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    type: Optional[str] = Query(None, pattern="^(income|expense)$"),
+    type: Optional[str] = Query(None, pattern="^(income|expense|adjustment)$"),
     db: Session = Depends(get_db),
 ):
     service = TransactionService(db)

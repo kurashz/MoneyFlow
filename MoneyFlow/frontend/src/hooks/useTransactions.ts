@@ -26,6 +26,7 @@ export const useTransactions = (params?: {
 
   useEffect(() => {
     fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.start_date, params?.end_date, params?.type]);
 
   const createTransaction = async (transaction: TransactionCreate) => {
